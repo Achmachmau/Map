@@ -1,5 +1,7 @@
 #pragma once
 
+#pragma once
+
 #include <cassert>
 
 template<typename TKey, typename TVal>
@@ -9,7 +11,16 @@ class Map
 	unsigned dataLen;
 	TKey* pKey;
 	TVal* pVal;
+
 public:
+	//?EqualRange
+
+	//Find
+	//Erase
+	//Insert
+
+	//const operator[]
+
 	Map() : buffLen( 0 ), dataLen( 0 ), pKey( nullptr ), pVal( nullptr ) {};
 
 	Map( const Map<TKey, TVal>& other )
@@ -64,12 +75,7 @@ public:
 
 	bool Count( const TKey& key )
 	{
-		for( unsigned i = 0; i < dataLen; ++i )
-		{
-			if( pKey[ i ] == key )
-				return true;
-		}
-		return false;
+		return SearchByKey( key ) >= 0 ? true : false;
 	}
 
 	void Emplace( const TKey& key, const TVal& val )
@@ -86,31 +92,23 @@ public:
 		}
 	}
 
-	//?EqualRange
-
-	//Find
-
-	//Erase
-	//Insert
-
 	unsigned Size() { return dataLen; }
+
 	bool Empty() { return !dataLen; }
 
 	TVal& operator[ ]( const TKey& key )
 	{
-		unsigned ind = 0;
-		while( ind < dataLen && key > pKey[ ind ] )
+		int resultSearch = SearchByKey( key );
+		if( resultSearch >= 0 )
 		{
-			++ind;
+			return pVal[ resultSearch ];
 		}
-
-		if( !pKey || key != pKey[ ind ] )
+		else
 		{
+			unsigned ind = -resultSearch - 1;
 			InsertItem( ind, key );
 			return pVal[ ind ];
 		}
-
-		return pVal[ ind ];
 	}
 
 	Map<TKey, TVal>& operator=( const Map<TKey, TVal>& other )
@@ -130,6 +128,7 @@ public:
 
 		return *this;
 	}
+
 	Map<TKey, TVal>& operator=( Map<TKey, TVal>&& other )
 	{
 		Swap( other );
@@ -147,6 +146,45 @@ public:
 	}
 
 private:
+	int SearchByKey( const TKey& key )
+	{	
+		if( !dataLen || key < pKey[ 0 ] )
+			return -1;
+		if( key == pKey[ 0 ] )
+			return 0;
+		if( key > pKey[ dataLen - 1 ] )
+			return -1 * ( dataLen + 1 );
+
+		unsigned left = 0, right = dataLen - 1,
+			pivot = ( right - left ) / 2;
+		while (right - left > 1)
+		{
+			pivot = left + ( right - left ) / 2;
+
+			if( key < pKey[ pivot ] )
+			{
+				right = pivot;
+			}
+			else if( key > pKey[ pivot ] )
+			{
+				left = pivot;
+			}
+			else //if ( key = pKey[ pivot ] )
+			{
+				return pivot;
+			}
+		}
+		if( pivot == right )
+		{
+			return key > pKey[ left ] ? ( -1 * ( right + 1 ) ) : left;
+		}
+		else
+		{
+			return key < pKey[ right ] ? (-1 * ( right + 1 ) ) : right;
+		}
+
+	}
+
 	void InsertItem( unsigned ind, const TKey& key/*, TVal&& val = TVal() */ )
 	{
 		Allocate( dataLen + 1 );
@@ -173,7 +211,7 @@ private:
 		if( ind == dataLen )
 		{
 			new ( &pKey[ dataLen ] ) TKey( key );
-			new ( &pVal[ dataLen ] ) TVal(val);
+			new ( &pVal[ dataLen ] ) TVal( val );
 			++dataLen;
 			return;
 		}
@@ -181,42 +219,42 @@ private:
 		std::memmove( ( TKey* ) &pKey[ ind + 1 ], ( TKey* ) &pKey[ ind ], ( dataLen - ind ) * sizeof( TKey ) );
 		new ( &pKey[ ind ] ) TKey( key );
 		std::memmove( ( TVal* ) &pVal[ ind + 1 ], ( TVal* ) &pVal[ ind ], ( dataLen - ind ) * sizeof( TVal ) );
-		new ( &pVal[ ind ] ) TVal(val);
+		new ( &pVal[ ind ] ) TVal( val );
 		++dataLen;
 	}
 
+//!!!
 	void Allocate( unsigned n )
 	{
 		if( !pKey )//&& !pVal
 		{
-			//buffLen = 128 / sizeof( Type );
-
-			//if( buffLen < n )
-			buffLen = n;
+			buffLen = 128 / sizeof( TKey );
+			if( buffLen < n )
+				buffLen = n;
 
 			pKey = ( TKey* ) std::malloc( buffLen * sizeof( TKey ) );
 			pVal = ( TVal* ) std::malloc( buffLen * sizeof( TVal ) );
 			assert( pKey && pVal );
 		}
-		else //if( n > buffLen )
+		else if( n > buffLen )
 		{
-			//buffLen = buffLen * 6 / 5;
-			//if( n > buffLen )
-			buffLen = n;
+			buffLen = buffLen * 6 / 5;
+			if( buffLen < n )
+				buffLen = n;
 
 			TKey* newKey = ( TKey* ) std::malloc( buffLen * sizeof( TKey ) );
 			TVal* newVal = ( TVal* ) std::malloc( buffLen * sizeof( TVal ) );
 			assert( newKey && newVal );
 			std::memcpy( newKey, pKey, dataLen * sizeof( TKey ) );
-			std::memcpy( newVal, pVal, dataLen * sizeof( TVal ) );
 			std::free( pKey );
 			pKey = newKey;
+			std::memcpy( newVal, pVal, dataLen * sizeof( TVal ) );
 			std::free( pVal );
 			pVal = newVal;
 		}
 	}
 
-	void Swap(Map<TKey, TVal>& tmp)
+	void Swap( Map<TKey, TVal>& tmp )
 	{
 		std::swap( buffLen, tmp.buffLen );
 		std::swap( dataLen, tmp.dataLen );
